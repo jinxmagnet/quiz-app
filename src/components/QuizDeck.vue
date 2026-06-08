@@ -14,19 +14,67 @@ const currentA = computed(() => store.currentAnswer)
 // ========== 滑动切换 ==========
 const touchStartX = ref(0)
 const touchStartY = ref(0)
-const swipeThreshold = 60
+const dragX = ref(0)
+const isDragging = ref(false)
+const isSwiping = ref(false) // 松手后正在动画过渡
+const swipeThreshold = 80
 
 function onTouchStart(e: TouchEvent) {
+  if (isSwiping.value) return
   touchStartX.value = e.touches[0].clientX
   touchStartY.value = e.touches[0].clientY
+  dragX.value = 0
+  isDragging.value = true
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!isDragging.value) return
+  const dx = e.touches[0].clientX - touchStartX.value
+  const dy = e.touches[0].clientY - touchStartY.value
+  // 水平滑动为主时才跟随
+  if (Math.abs(dx) > Math.abs(dy)) {
+    e.preventDefault()
+    // 边界限制：第一题不能左滑（即不能向右看上一题），最后一题不能右滑
+    if ((dx > 0 && store.currentIndex <= 0) || (dx < 0 && store.currentIndex >= store.totalQuestions - 1)) return
+    dragX.value = dx
+  }
 }
 
 function onTouchEnd(e: TouchEvent) {
+  if (!isDragging.value) return
+  isDragging.value = false
+
   const dx = e.changedTouches[0].clientX - touchStartX.value
   const dy = e.changedTouches[0].clientY - touchStartY.value
-  if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < swipeThreshold) return
-  if (dx > 0) goPrev()
-  else goNext()
+  if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < swipeThreshold) {
+    // 未达标：弹回原位
+    isSwiping.value = true
+    dragX.value = 0
+    setTimeout(() => { isSwiping.value = false }, 250)
+    return
+  }
+
+  // 达标：滑出屏幕
+  isSwiping.value = true
+  const dir = dx > 0 ? 1 : -1
+  dragX.value = dir * (window.innerWidth * 1.2) // 滑出视口
+
+  setTimeout(() => {
+    if (dx > 0) goPrev()
+    else goNext()
+    dragX.value = 0
+    isSwiping.value = false
+  }, 200)
+}
+
+function cardStyle() {
+  const t = isSwiping.value ? 'transform 0.2s ease-out, opacity 0.2s ease-out' : 'none'
+  const abs = Math.abs(dragX.value)
+  return {
+    transform: `translateX(${dragX.value}px)`,
+    opacity: abs > 0 ? 1 - Math.min(abs / 400, 0.5) : 1,
+    transition: t,
+  }
 }
 
 // ========== 事件处理 ==========
@@ -89,8 +137,8 @@ onUnmounted(() => {
 
 <template>
   <div class="deck-container">
-    <div class="card-stage" @touchstart="onTouchStart" @touchend="onTouchEnd">
-      <div v-if="currentQ" class="card-wrap">
+    <div class="card-stage" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+      <div v-if="currentQ" class="card-wrap" :style="cardStyle()">
         <QuizCard
           :key="store.currentIndex"
           :question="currentQ"
@@ -137,8 +185,8 @@ onUnmounted(() => {
 
 <style scoped>
 .deck-container { display: flex; flex-direction: column; flex: 1; width: 100%; min-height: 0; overflow: hidden; }
-.card-stage { flex: 1; width: 100%; overflow: hidden; touch-action: pan-y; }
-.card-wrap { height: 100%; padding: 8px 8px 12px; display: flex; align-items: stretch; }
+.card-stage { flex: 1; width: 100%; overflow: hidden; touch-action: pan-y; position: relative; }
+.card-wrap { height: 100%; padding: 8px 8px 12px; display: flex; align-items: stretch; will-change: transform, opacity; }
 .deck-nav { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 10px 20px 16px; flex-shrink: 0; }
 .nav-arrow { width: 40px; height: 40px; border: 1.5px solid #e0e0e0; border-radius: 50%; background: #fff; font-size: 22px; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0; flex-shrink: 0; }
 .nav-arrow:hover:not(.disabled) { border-color: #4a6cf7; color: #4a6cf7; background: #f5f7ff; }
