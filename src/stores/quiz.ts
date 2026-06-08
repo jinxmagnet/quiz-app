@@ -1,7 +1,31 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Question, AnswerRecord, QuizMode, PageMode } from '../types'
 import questionsData from '../data/questions.json'
+
+const STORAGE_PREFIX = 'quiz-progress'
+
+function getStorageKey(bank: string, field: string) {
+  return `${STORAGE_PREFIX}-${bank}-${field}`
+}
+
+function saveToStorage(key: string, data: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(data)) } catch { /* quota exceeded */ }
+}
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw != null) return JSON.parse(raw) as T
+  } catch { /* parse error */ }
+  return fallback
+}
+
+function clearStorageForBank(bank: string) {
+  ;['answers', 'index', 'mode', 'pageMode', 'shuffledIds'].forEach((field) => {
+    try { localStorage.removeItem(getStorageKey(bank, field)) } catch { /* */ }
+  })
+}
 
 export const useQuizStore = defineStore('quiz', () => {
   // ========== 题库相关 ==========
@@ -43,7 +67,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   // 当前题目在题库中的实际索引
-  const currentIndex = ref(0)
+  const currentIndex = ref(loadFromStorage<number>(getStorageKey('safety-a', 'index'), 0))
 
   // 获取当前题目的实际索引（顺序模式用 currentIndex，随机模式用 shuffledIds[currentIndex]）
   const currentQuestionIndex = computed(() => {
@@ -64,7 +88,9 @@ export const useQuizStore = defineStore('quiz', () => {
   const totalQuestions = computed(() => questions.value.length)
 
   // ========== 答题记录 ==========
-  const answers = ref<Record<number, AnswerRecord>>({})
+  const answers = ref<Record<number, AnswerRecord>>(
+    loadFromStorage<Record<number, AnswerRecord>>(getStorageKey('safety-a', 'answers'), {})
+  )
 
   // 已答题数
   const answeredCount = computed(() => Object.keys(answers.value).length)
@@ -190,6 +216,7 @@ export const useQuizStore = defineStore('quiz', () => {
   function reset() {
     currentIndex.value = 0
     answers.value = {}
+    clearStorageForBank('safety-a')
     if (mode.value === 'random') {
       regenerateShuffledIds()
     }
@@ -197,6 +224,15 @@ export const useQuizStore = defineStore('quiz', () => {
 
   // 初始化随机索引
   regenerateShuffledIds()
+
+  // ========== LocalStorage 自动保存 ==========
+  watch(answers, (val) => {
+    saveToStorage(getStorageKey('safety-a', 'answers'), val)
+  }, { deep: true })
+
+  watch(currentIndex, (val) => {
+    saveToStorage(getStorageKey('safety-a', 'index'), val)
+  })
 
   return {
     // state
