@@ -11,6 +11,24 @@ const autoAdvanceTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const currentQ = computed(() => store.currentQuestion)
 const currentA = computed(() => store.currentAnswer)
 
+// ========== 滑动切换 ==========
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const swipeThreshold = 60
+
+function onTouchStart(e: TouchEvent) {
+  touchStartX.value = e.touches[0].clientX
+  touchStartY.value = e.touches[0].clientY
+}
+
+function onTouchEnd(e: TouchEvent) {
+  const dx = e.changedTouches[0].clientX - touchStartX.value
+  const dy = e.changedTouches[0].clientY - touchStartY.value
+  if (Math.abs(dx) < Math.abs(dy) || Math.abs(dx) < swipeThreshold) return
+  if (dx > 0) goPrev()
+  else goNext()
+}
+
 // ========== 事件处理 ==========
 function handleAnswerSingle(label: string) {
   if (store.isCurrentAnswered) return
@@ -71,9 +89,10 @@ onUnmounted(() => {
 
 <template>
   <div class="deck-container">
-    <div class="card-stage">
+    <div class="card-stage" @touchstart="onTouchStart" @touchend="onTouchEnd">
       <div v-if="currentQ" class="card-wrap">
         <QuizCard
+          :key="store.currentIndex"
           :question="currentQ"
           :answer="currentA"
           :revealed="true"
@@ -118,7 +137,7 @@ onUnmounted(() => {
 
 <style scoped>
 .deck-container { display: flex; flex-direction: column; flex: 1; width: 100%; min-height: 0; overflow: hidden; }
-.card-stage { flex: 1; width: 100%; overflow: hidden; }
+.card-stage { flex: 1; width: 100%; overflow: hidden; touch-action: pan-y; }
 .card-wrap { height: 100%; padding: 8px 8px 12px; display: flex; align-items: stretch; }
 .deck-nav { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 10px 20px 16px; flex-shrink: 0; }
 .nav-arrow { width: 40px; height: 40px; border: 1.5px solid #e0e0e0; border-radius: 50%; background: #fff; font-size: 22px; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0; flex-shrink: 0; }
