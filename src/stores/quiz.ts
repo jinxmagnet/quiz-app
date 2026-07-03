@@ -287,6 +287,19 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
+  function retryWrong() {
+    const next = { ...answers.value }
+    for (const [qid, rec] of Object.entries(next)) {
+      if (!rec.correct) delete next[Number(qid)]
+    }
+    answers.value = next
+    reviewMode.value = 'wrong'
+    currentIndex.value = 0
+    if (mode.value === 'random') {
+      regenerateShuffledIds()
+    }
+  }
+
   function reset() {
     currentIndex.value = 0
     answers.value = {}
@@ -372,6 +385,7 @@ export const useQuizStore = defineStore('quiz', () => {
     canGoNext,
     canGoPrev,
     reset,
+    retryWrong,
     toggleBookmark,
     isBookmarked,
   }

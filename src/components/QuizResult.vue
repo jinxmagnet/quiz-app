@@ -74,6 +74,7 @@ const wrongQuestions = computed(() => {
         <span>全部正确，太棒了！</span>
       </div>
 
+      <button v-if="wrongQuestions.length" class="btn-retry-wrong" @click="store.retryWrong()">重答错题（{{ wrongQuestions.length }} 题）</button>
       <button class="btn-restart" @click="store.reset()">再来一次</button>
     </div>
   </div>
@@ -211,6 +212,28 @@ const wrongQuestions = computed(() => {
   .btn-restart:hover {
     background: #4f46e5;
     box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  }
+}
+
+.btn-retry-wrong {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-error);
+  border: 1.5px solid var(--color-error);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 10px;
+}
+
+@media (hover: hover) {
+  .btn-retry-wrong:hover {
+    background: var(--color-error-bg);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.15);
   }
 }
 </style>
