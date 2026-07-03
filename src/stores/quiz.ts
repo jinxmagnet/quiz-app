@@ -160,58 +160,57 @@ export const useQuizStore = defineStore('quiz', () => {
       .filter(Boolean) as Question[]
   })
 
-  // 错题重答模式
+  // 错题重答模式 — 独立追踪进度，不改动 answers
   const wrongRetrying = ref(false)
   const wrongRetryIndex = ref(0)
+  const wrongRetryDone = ref<Set<number>>(new Set())
+
+  const wrongRetrySequence = computed(() => {
+    return wrongQuestionsList.value.filter(q => !wrongRetryDone.value.has(q.id))
+  })
 
   const wrongRetryQuestion = computed(() => {
-    const list = wrongQuestionsList.value
-    if (wrongRetryIndex.value >= 0 && wrongRetryIndex.value < list.length) {
-      return list[wrongRetryIndex.value]
+    const seq = wrongRetrySequence.value
+    if (wrongRetryIndex.value >= 0 && wrongRetryIndex.value < seq.length) {
+      return seq[wrongRetryIndex.value]
     }
     return null
   })
 
   function startWrongRetry() {
     if (wrongQuestionsList.value.length === 0) return
+    wrongRetryDone.value = new Set()
     wrongRetryIndex.value = 0
     wrongRetrying.value = true
-  }
-
-  function clearWrongAnswers() {
-    const next = { ...answers.value }
-    for (const [qid, rec] of Object.entries(next)) {
-      if (!rec.correct) delete next[Number(qid)]
-    }
-    answers.value = next
   }
 
   function resetWrongRetry() {
     wrongRetrying.value = false
     wrongRetryIndex.value = 0
+    wrongRetryDone.value = new Set()
   }
 
-  // 错题重答提交（答对自动移除，答错保留接着下一题）
   function submitWrongRetrySingle(label: string) {
     const q = wrongRetryQuestion.value
     if (!q) return null
     const correct = label === q.answer
-    answers.value = {
-      ...answers.value,
-      [q.id]: { selected: [label], correct },
+    if (correct) {
+      const next = new Set(wrongRetryDone.value)
+      next.add(q.id)
+      wrongRetryDone.value = next
     }
-    // 所有错题都答对了
-    if (wrongQuestionsList.value.length === 0) {
+    // 全部完成
+    if (wrongRetrySequence.value.length === 0) {
       wrongRetrying.value = false
       wrongRetryIndex.value = 0
       return { correct, correctAnswer: q.answer }
     }
-    // 答对后索引可能越界（当前是最后一道题被答对），往前移
-    if (wrongRetryIndex.value >= wrongQuestionsList.value.length) {
-      wrongRetryIndex.value = wrongQuestionsList.value.length - 1
+    // 索引修正
+    if (wrongRetryIndex.value >= wrongRetrySequence.value.length) {
+      wrongRetryIndex.value = wrongRetrySequence.value.length - 1
     }
-    // 答错则前进下一题
-    if (!correct && wrongRetryIndex.value < wrongQuestionsList.value.length - 1) {
+    // 答错前进
+    if (!correct && wrongRetryIndex.value < wrongRetrySequence.value.length - 1) {
       wrongRetryIndex.value++
     }
     return { correct, correctAnswer: q.answer }
@@ -225,19 +224,20 @@ export const useQuizStore = defineStore('quiz', () => {
     const correct =
       correctAnswerSet.size === selectedSet.size &&
       [...correctAnswerSet].every((l) => selectedSet.has(l))
-    answers.value = {
-      ...answers.value,
-      [q.id]: { selected: labels, correct },
+    if (correct) {
+      const next = new Set(wrongRetryDone.value)
+      next.add(q.id)
+      wrongRetryDone.value = next
     }
-    if (wrongQuestionsList.value.length === 0) {
+    if (wrongRetrySequence.value.length === 0) {
       wrongRetrying.value = false
       wrongRetryIndex.value = 0
       return { correct, correctAnswer: q.answer }
     }
-    if (wrongRetryIndex.value >= wrongQuestionsList.value.length) {
-      wrongRetryIndex.value = wrongQuestionsList.value.length - 1
+    if (wrongRetryIndex.value >= wrongRetrySequence.value.length) {
+      wrongRetryIndex.value = wrongRetrySequence.value.length - 1
     }
-    if (!correct && wrongRetryIndex.value < wrongQuestionsList.value.length - 1) {
+    if (!correct && wrongRetryIndex.value < wrongRetrySequence.value.length - 1) {
       wrongRetryIndex.value++
     }
     return { correct, correctAnswer: q.answer }
@@ -371,12 +371,6 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
-  function retryQuestion(qid: number) {
-    const next = { ...answers.value }
-    delete next[qid]
-    answers.value = next
-  }
-
   function reset() {
     currentIndex.value = 0
     answers.value = {}
@@ -446,7 +440,9 @@ export const useQuizStore = defineStore('quiz', () => {
     reviewTotal,
     wrongQuestionsList,
     wrongRetrying,
+    wrongRetryDone,
     wrongRetryIndex,
+    wrongRetrySequence,
     wrongRetryQuestion,
     answeredCount,
     correctCount,
@@ -467,9 +463,7 @@ export const useQuizStore = defineStore('quiz', () => {
     canGoNext,
     canGoPrev,
     reset,
-    retryQuestion,
     startWrongRetry,
-    clearWrongAnswers,
     resetWrongRetry,
     submitWrongRetrySingle,
     submitWrongRetryMulti,

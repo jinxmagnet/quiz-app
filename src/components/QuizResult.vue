@@ -65,7 +65,6 @@ const wrongQuestions = computed(() => {
           </div>
           <div class="wrong-actions">
             <span class="wans">正确答案：<strong>{{ q!.answer }}</strong></span>
-            <button class="btn-single-retry" @click="store.retryQuestion(q!.id)">重答</button>
           </div>
         </div>
       </div>
@@ -216,30 +215,6 @@ const wrongQuestions = computed(() => {
 }
 
 .wrong-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-top: 8px;
-  gap: 8px;
-}
-
-.btn-single-retry {
-  padding: 4px 14px;
-  border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-error);
-  border: 1px solid var(--color-error);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: all 0.15s;
-}
-
-@media (hover: hover) {
-  .btn-single-retry:hover {
-    background: var(--color-error-bg);
-  }
 }
 </style>

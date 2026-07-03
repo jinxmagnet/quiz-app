@@ -4,10 +4,6 @@ import QuizCard from './QuizCard.vue'
 
 const store = useQuizStore()
 
-function retryOne(qid: number) {
-  store.retryQuestion(qid)
-}
-
 function handleRetrySingle(label: string) {
   store.submitWrongRetrySingle(label)
 }
@@ -28,6 +24,9 @@ function currentWrongAnswer() {
     <!-- 重答卡片模式 -->
     <template v-if="store.wrongRetrying">
       <div v-if="store.wrongRetryQuestion" class="retry-card">
+        <div class="retry-progress">
+          重答进度 {{ store.wrongRetryIndex + 1 }} / {{ store.wrongRetrySequence.length + store.wrongRetryDone.size }}
+        </div>
         <QuizCard
           :key="store.wrongRetryQuestion.id"
           :question="store.wrongRetryQuestion"
@@ -60,7 +59,6 @@ function currentWrongAnswer() {
           </div>
           <div class="wrong-actions">
             <span class="wans">正确答案：<strong>{{ q.answer }}</strong></span>
-            <button class="btn-retry-one" @click="retryOne(q.id)">重答</button>
           </div>
         </div>
       </template>
@@ -89,7 +87,16 @@ function currentWrongAnswer() {
 .retry-card {
   flex: 1;
   display: flex;
+  flex-direction: column;
   min-height: 0;
+  gap: 6px;
+}
+
+.retry-progress {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 0 4px;
 }
 
 .retry-card :deep(.quiz-card) {
@@ -132,7 +139,7 @@ function currentWrongAnswer() {
 .wrong-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -144,26 +151,6 @@ function currentWrongAnswer() {
 .wans strong {
   color: var(--color-success);
   font-weight: 700;
-}
-
-.btn-retry-one {
-  padding: 5px 16px;
-  border-radius: 8px;
-  background: var(--color-surface);
-  color: var(--color-error);
-  border: 1.5px solid var(--color-error);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-@media (hover: hover) {
-  .btn-retry-one:hover {
-    background: var(--color-error-bg);
-  }
 }
 
 .btn-restart {

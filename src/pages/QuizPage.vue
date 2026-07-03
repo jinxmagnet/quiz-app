@@ -88,7 +88,7 @@ const isWrongMode = computed(() => store.pageMode === 'wrong')
     <!-- 错题模式的操作栏 -->
     <div v-else-if="!store.wrongRetrying" class="sub-bar wrong-bar">
       <span class="wrong-info">共 {{ store.wrongQuestionsList.length }} 道错题</span>
-      <button class="btn-retry-all" @click="store.clearWrongAnswers(); store.startWrongRetry()">重新答题</button>
+      <button class="btn-retry-all" @click="store.startWrongRetry()">重新答题</button>
     </div>
 
     <!-- 进度条 -->
