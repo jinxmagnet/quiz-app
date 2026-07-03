@@ -63,8 +63,9 @@ const wrongQuestions = computed(() => {
             <span class="wid">#{{ q!.id }}</span>
             {{ q!.question }}
           </div>
-          <div class="wans">
-            正确答案：<strong>{{ q!.answer }}</strong>
+          <div class="wrong-actions">
+            <span class="wans">正确答案：<strong>{{ q!.answer }}</strong></span>
+            <button class="btn-single-retry" @click="store.retryQuestion(q!.id)">重答</button>
           </div>
         </div>
       </div>
@@ -74,7 +75,6 @@ const wrongQuestions = computed(() => {
         <span>全部正确，太棒了！</span>
       </div>
 
-      <button v-if="wrongQuestions.length" class="btn-retry-wrong" @click="store.retryWrong()">重答错题（{{ wrongQuestions.length }} 题）</button>
       <button class="btn-restart" @click="store.reset()">再来一次</button>
     </div>
   </div>
@@ -215,25 +215,31 @@ const wrongQuestions = computed(() => {
   }
 }
 
-.btn-retry-wrong {
-  display: block;
-  width: 100%;
-  padding: 12px 20px;
-  border-radius: var(--radius-md);
+.wrong-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.btn-single-retry {
+  padding: 4px 14px;
+  border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-error);
-  border: 1.5px solid var(--color-error);
-  font-size: 15px;
+  border: 1px solid var(--color-error);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s;
-  margin-bottom: 10px;
 }
 
 @media (hover: hover) {
-  .btn-retry-wrong:hover {
+  .btn-single-retry:hover {
     background: var(--color-error-bg);
-    box-shadow: 0 4px 12px rgba(239,68,68,0.15);
   }
 }
 </style>

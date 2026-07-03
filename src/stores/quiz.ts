@@ -300,6 +300,12 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
+  function retryQuestion(qid: number) {
+    const next = { ...answers.value }
+    delete next[qid]
+    answers.value = next
+  }
+
   function reset() {
     currentIndex.value = 0
     answers.value = {}
@@ -386,6 +392,7 @@ export const useQuizStore = defineStore('quiz', () => {
     canGoPrev,
     reset,
     retryWrong,
+    retryQuestion,
     toggleBookmark,
     isBookmarked,
   }
