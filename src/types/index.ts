@@ -24,6 +24,9 @@ export type QuizMode = 'sequential' | 'random'
 /** 页面模式：答题 / 学习 */
 export type PageMode = 'exam' | 'learn'
 
+/** 复习模式：全部 / 错题 / 收藏 */
+export type ReviewMode = 'all' | 'wrong' | 'bookmarked'
+
 /** 题库信息 */
 export interface QuestionBank {
   name: string
