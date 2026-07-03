@@ -49,12 +49,12 @@ export const useQuizStore = defineStore('quiz', () => {
     loadFromStorage<QuizMode>(getStorageKey('safety-a', 'mode'), 'sequential')
   )
 
-  // ========== 页面模式（答题/学习） ==========
+  // ========== 页面模式：答题/学习/错题 ==========
   const pageMode = ref<PageMode>(
-    loadFromStorage<PageMode>(getStorageKey('safety-a', 'pageMode'), 'exam')
+    loadFromStorage<PageMode>(getStorageKey('safety-a', 'pageMode'), 'exam') as PageMode
   )
 
-  // ========== 复习模式（全部/错题/收藏） ==========
+  // ========== 复习筛选：全部 / 收藏 ==========
   const reviewMode = ref<ReviewMode>(
     loadFromStorage<ReviewMode>(getStorageKey('safety-a', 'reviewMode'), 'all')
   )
@@ -113,21 +113,12 @@ export const useQuizStore = defineStore('quiz', () => {
 
   const totalQuestions = computed(() => questions.value.length)
 
-  // ========== 复习模式下的题目序列 ==========
-  // 返回当前复习模式下可用的题目索引列表
+  // ========== 复习筛选下的题目序列（仅用于答题/学习模式的全部/收藏筛选）==========
   const reviewSequence = computed(() => {
     const seq = mode.value === 'random' && shuffledIds.value.length > 0
       ? shuffledIds.value
       : questions.value.map((_, i) => i)
 
-    if (reviewMode.value === 'wrong') {
-      return seq.filter(idx => {
-        const q = questions.value[idx]
-        if (!q) return false
-        const ans = answers.value[q.id]
-        return ans && !ans.correct
-      })
-    }
     if (reviewMode.value === 'bookmarked') {
       return seq.filter(idx => {
         const q = questions.value[idx]
@@ -140,7 +131,7 @@ export const useQuizStore = defineStore('quiz', () => {
 
   const reviewTotal = computed(() => reviewSequence.value.length)
 
-  // 当前在复习序列中的实际题目
+  // 复习序列中的当前题目
   const reviewCurrentQuestion = computed(() => {
     const seq = reviewSequence.value
     if (currentIndex.value >= 0 && currentIndex.value < seq.length) {
@@ -150,7 +141,7 @@ export const useQuizStore = defineStore('quiz', () => {
     return null
   })
 
-  // 对外暴露：复习模式下用 reviewCurrentQuestion，否则用 currentQuestion
+  // 答题/学习模式下的活跃题目
   const activeQuestion = computed(() => {
     if (reviewMode.value !== 'all') return reviewCurrentQuestion.value
     return currentQuestion.value
@@ -159,6 +150,14 @@ export const useQuizStore = defineStore('quiz', () => {
   const activeTotal = computed(() => {
     if (reviewMode.value !== 'all') return reviewTotal.value
     return totalQuestions.value
+  })
+
+  // ========== 错题列表（错题专用模式）==========
+  const wrongQuestionsList = computed(() => {
+    return Object.entries(answers.value)
+      .filter(([_, r]) => !r.correct)
+      .map(([qid]) => questions.value.find(q => q.id === Number(qid)))
+      .filter(Boolean) as Question[]
   })
 
   // ========== 答题记录 ==========
@@ -175,6 +174,8 @@ export const useQuizStore = defineStore('quiz', () => {
   const wrongCount = computed(() => answeredCount.value - correctCount.value)
 
   const isFinished = computed(() => {
+    // 错题模式不判定完成
+    if (pageMode.value === 'wrong') return false
     if (reviewMode.value !== 'all') {
       return currentIndex.value >= reviewTotal.value
     }
@@ -196,13 +197,13 @@ export const useQuizStore = defineStore('quiz', () => {
   // ========== 动作 ==========
 
   function selectBank(name: string) {
-    // ponytail: don't clear if re-entering same bank
     if (name === currentBankName.value) return
     currentBankName.value = name
     currentIndex.value = 0
     answers.value = {}
     bookmarks.value = new Set()
     reviewMode.value = 'all'
+    pageMode.value = 'exam'
     if (mode.value === 'random') {
       regenerateShuffledIds()
     }
@@ -211,6 +212,9 @@ export const useQuizStore = defineStore('quiz', () => {
   function setPageMode(newPageMode: PageMode) {
     if (newPageMode === pageMode.value) return
     pageMode.value = newPageMode
+    if (newPageMode === 'wrong') {
+      currentIndex.value = 0
+    }
   }
 
   function setMode(newMode: QuizMode) {
@@ -241,10 +245,6 @@ export const useQuizStore = defineStore('quiz', () => {
       ...answers.value,
       [q.id]: { selected: [selectedLabel], correct },
     }
-
-    // 答对了就从错题复习序列中移除（自动前进时该题不会再出现是合理的，因为已经不再是错题）
-    // ponytail: keep it simple, just mark it
-
     return { correct, correctAnswer: q.answer }
   }
 
@@ -264,6 +264,7 @@ export const useQuizStore = defineStore('quiz', () => {
   }
 
   function canGoNext(): boolean {
+    if (pageMode.value === 'wrong') return false
     const total = reviewMode.value !== 'all' ? reviewTotal.value : totalQuestions.value
     return currentIndex.value < total - 1
   }
@@ -287,19 +288,6 @@ export const useQuizStore = defineStore('quiz', () => {
     }
   }
 
-  function retryWrong() {
-    const next = { ...answers.value }
-    for (const [qid, rec] of Object.entries(next)) {
-      if (!rec.correct) delete next[Number(qid)]
-    }
-    answers.value = next
-    reviewMode.value = 'wrong'
-    currentIndex.value = 0
-    if (mode.value === 'random') {
-      regenerateShuffledIds()
-    }
-  }
-
   function retryQuestion(qid: number) {
     const next = { ...answers.value }
     delete next[qid]
@@ -311,6 +299,7 @@ export const useQuizStore = defineStore('quiz', () => {
     answers.value = {}
     bookmarks.value = new Set()
     reviewMode.value = 'all'
+    pageMode.value = 'exam'
     clearStorageForBank('safety-a')
     if (mode.value === 'random') {
       regenerateShuffledIds()
@@ -372,6 +361,7 @@ export const useQuizStore = defineStore('quiz', () => {
     activeTotal,
     reviewSequence,
     reviewTotal,
+    wrongQuestionsList,
     answeredCount,
     correctCount,
     wrongCount,
@@ -391,7 +381,6 @@ export const useQuizStore = defineStore('quiz', () => {
     canGoNext,
     canGoPrev,
     reset,
-    retryWrong,
     retryQuestion,
     toggleBookmark,
     isBookmarked,

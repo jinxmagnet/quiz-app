@@ -5,6 +5,7 @@ import { useQuizStore } from '../stores/quiz'
 const store = useQuizStore()
 
 const progressPercent = computed(() => {
+  if (store.pageMode === 'wrong') return 0
   if (store.reviewMode !== 'all') {
     return store.reviewTotal > 0 ? (store.currentIndex / store.reviewTotal) * 100 : 0
   }
@@ -17,16 +18,23 @@ const progressPercent = computed(() => {
     <div class="header-info">
       <span class="bank-label">{{ store.currentBank?.label ?? '' }}</span>
       <div class="stats-row">
-        <span class="stat-item">
-          {{ store.currentIndex + 1 }} / {{ store.activeTotal }}
-        </span>
-        <span v-if="store.answeredCount > 0" class="stat-divider">·</span>
-        <span v-if="store.answeredCount > 0" class="stat-item correct">
-          正确 {{ store.correctCount }}/{{ store.answeredCount }}
-        </span>
-        <span v-if="store.wrongCount > 0" class="stat-item wrong">
-          · 错误 {{ store.wrongCount }}
-        </span>
+        <template v-if="store.pageMode === 'wrong'">
+          <span class="stat-item wrong">错题 {{ store.wrongQuestionsList.length }}</span>
+          <span v-if="store.answeredCount > 0" class="stat-divider">·</span>
+          <span v-if="store.answeredCount > 0" class="stat-item correct">正确 {{ store.correctCount }}/{{ store.answeredCount }}</span>
+        </template>
+        <template v-else>
+          <span class="stat-item">
+            {{ store.currentIndex + 1 }} / {{ store.activeTotal }}
+          </span>
+          <span v-if="store.answeredCount > 0" class="stat-divider">·</span>
+          <span v-if="store.answeredCount > 0" class="stat-item correct">
+            正确 {{ store.correctCount }}/{{ store.answeredCount }}
+          </span>
+          <span v-if="store.wrongCount > 0" class="stat-item wrong">
+            · 错误 {{ store.wrongCount }}
+          </span>
+        </template>
       </div>
     </div>
 
@@ -68,13 +76,8 @@ const progressPercent = computed(() => {
   white-space: nowrap;
 }
 
-.stat-item.correct {
-  color: var(--color-success);
-}
-
-.stat-item.wrong {
-  color: var(--color-error);
-}
+.stat-item.correct { color: var(--color-success); }
+.stat-item.wrong   { color: var(--color-error); }
 
 .stat-divider {
   margin: 0 2px;

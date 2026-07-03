@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuizStore } from '../stores/quiz'
 import QuizHeader from '../components/QuizHeader.vue'
 import QuizDeck from '../components/QuizDeck.vue'
+import WrongList from '../components/WrongList.vue'
 import QuizResult from '../components/QuizResult.vue'
 
 const router = useRouter()
@@ -11,11 +13,13 @@ const store = useQuizStore()
 function goHome() {
   router.push('/')
 }
+
+const isWrongMode = computed(() => store.pageMode === 'wrong')
 </script>
 
 <template>
   <div class="quiz-page">
-    <!-- 顶部导航栏 -->
+    <!-- 顶部导航栏：返回 + 答题/学习/错题 + 重置 -->
     <div class="top-bar">
       <button class="back-btn" @click="goHome" aria-label="返回首页">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -24,7 +28,6 @@ function goHome() {
       </button>
 
       <div class="top-center">
-        <!-- 答题/学习切换 -->
         <div class="segmented">
           <button
             class="seg-btn"
@@ -36,14 +39,22 @@ function goHome() {
             :class="{ active: store.pageMode === 'learn' }"
             @click="store.setPageMode('learn')"
           >学习</button>
+          <button
+            class="seg-btn seg-wrong"
+            :class="{ active: isWrongMode }"
+            @click="store.setPageMode('wrong')"
+          >
+            错题
+            <span v-if="store.wrongCount > 0" class="badge">{{ store.wrongCount }}</span>
+          </button>
         </div>
       </div>
 
       <button class="reset-btn" @click="store.reset()">重置</button>
     </div>
 
-    <!-- 第二行：刷题模式 + 复习筛选 -->
-    <div class="sub-bar">
+    <!-- 第二行：答题/学习模式才有（顺序/随机 + 全部/收藏） -->
+    <div v-if="!isWrongMode" class="sub-bar">
       <div class="segmented sm">
         <button
           class="seg-btn"
@@ -65,28 +76,34 @@ function goHome() {
         >全部</button>
         <button
           class="seg-btn"
-          :class="{ active: store.reviewMode === 'wrong' }"
-          @click="store.setReviewMode('wrong')"
-        >
-          错题
-          <span v-if="store.wrongCount > 0" class="badge">{{ store.wrongCount }}</span>
-        </button>
-        <button
-          class="seg-btn"
           :class="{ active: store.reviewMode === 'bookmarked' }"
           @click="store.setReviewMode('bookmarked')"
-        >收藏</button>
+        >
+          收藏
+          <span v-if="store.bookmarks.size > 0" class="badge">{{ store.bookmarks.size }}</span>
+        </button>
       </div>
     </div>
 
-    <!-- 进度条 + 题库名 -->
+    <!-- 错题模式的操作栏 -->
+    <div v-else class="sub-bar wrong-bar">
+      <span class="wrong-info">共 {{ store.wrongQuestionsList.length }} 道错题</span>
+      <button class="btn-retry-all" @click="store.reset()">重新答题</button>
+    </div>
+
+    <!-- 进度条 -->
     <QuizHeader />
 
     <!-- 主内容 -->
     <main class="main-content">
-      <QuizDeck v-if="store.pageMode === 'exam' && !store.isFinished" />
-      <QuizDeck v-else-if="store.pageMode === 'learn'" />
-      <QuizResult v-else />
+      <!-- 答题/学习模式 -->
+      <template v-if="!isWrongMode">
+        <QuizDeck v-if="(store.pageMode === 'exam' && !store.isFinished) || store.pageMode === 'learn'" />
+        <QuizResult v-else />
+      </template>
+
+      <!-- 错题列表 -->
+      <WrongList v-else />
     </main>
   </div>
 </template>
@@ -134,6 +151,7 @@ function goHome() {
 .top-center {
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 /* 分段控制器 */
@@ -175,6 +193,11 @@ function goHome() {
   box-shadow: 0 2px 8px rgba(99,102,241,0.3);
 }
 
+.seg-wrong.active {
+  background: var(--color-error);
+  box-shadow: 0 2px 8px rgba(239,68,68,0.3);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -189,6 +212,14 @@ function goHome() {
   margin-left: 3px;
 }
 
+.seg-wrong:not(.active) .badge,
+.seg-wrong:not(.active) {
+  color: var(--color-error);
+}
+.seg-wrong:not(.active):hover {
+  background: var(--color-error-bg);
+}
+
 .reset-btn {
   padding: 5px 14px;
   border-radius: 10px;
@@ -199,6 +230,7 @@ function goHome() {
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 @media (hover: hover) {
@@ -223,6 +255,35 @@ function goHome() {
   gap: 0;
 }
 
+/* 错题操作栏 */
+.wrong-bar {
+  justify-content: space-between;
+  padding: 6px 20px 8px;
+}
+
+.wrong-info {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.btn-retry-all {
+  padding: 5px 14px;
+  border-radius: 8px;
+  background: var(--color-error);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+@media (hover: hover) {
+  .btn-retry-all:hover {
+    background: #dc2626;
+  }
+}
+
 /* 主内容 */
 .main-content {
   width: 100%;
@@ -230,5 +291,6 @@ function goHome() {
   justify-content: center;
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
 </style>
