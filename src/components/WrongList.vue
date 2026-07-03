@@ -1,39 +1,76 @@
 <script setup lang="ts">
 import { useQuizStore } from '../stores/quiz'
+import QuizCard from './QuizCard.vue'
 
 const store = useQuizStore()
 
 function retryOne(qid: number) {
   store.retryQuestion(qid)
 }
+
+function handleRetrySingle(label: string) {
+  store.submitWrongRetrySingle(label)
+}
+
+function handleRetryMulti(labels: string[]) {
+  store.submitWrongRetryMulti(labels)
+}
+
+function currentWrongAnswer() {
+  const q = store.wrongRetryQuestion
+  if (!q) return null
+  return store.answers[q.id] ?? null
+}
 </script>
 
 <template>
   <div class="wrong-list-wrap">
-    <div v-if="store.wrongQuestionsList.length === 0" class="empty-state">
-      <span class="empty-icon">🎉</span>
-      <p>暂无错题</p>
-    </div>
-
-    <template v-else>
-      <div v-for="q in store.wrongQuestionsList" :key="q.id" class="wrong-item">
-        <div class="wrong-q">
-          <span class="wid">#{{ q.id }}</span>
-          {{ q.question }}
-        </div>
-        <div class="wrong-actions">
-          <span class="wans">正确答案：<strong>{{ q.answer }}</strong></span>
-          <button class="btn-retry-one" @click="retryOne(q.id)">重答</button>
-        </div>
+    <!-- 重答卡片模式 -->
+    <template v-if="store.wrongRetrying">
+      <div v-if="store.wrongRetryQuestion" class="retry-card">
+        <QuizCard
+          :key="store.wrongRetryQuestion.id"
+          :question="store.wrongRetryQuestion"
+          :answer="currentWrongAnswer()"
+          :revealed="true"
+          :learn-mode="false"
+          @answer-single="handleRetrySingle"
+          @answer-multi="handleRetryMulti"
+        />
+      </div>
+      <div v-else class="empty-state">
+        <span class="empty-icon">🎉</span>
+        <p>错题已全部答对！</p>
+        <button class="btn-restart" @click="store.resetWrongRetry()">返回错题列表</button>
       </div>
     </template>
 
-    <!-- 底部再来一次 -->
-    <button
-      v-if="store.wrongQuestionsList.length > 0"
-      class="btn-restart"
-      @click="store.reset()"
-    >再来一次</button>
+    <!-- 列表模式 -->
+    <template v-else>
+      <div v-if="store.wrongQuestionsList.length === 0" class="empty-state">
+        <span class="empty-icon">🎉</span>
+        <p>暂无错题</p>
+      </div>
+
+      <template v-else>
+        <div v-for="q in store.wrongQuestionsList" :key="q.id" class="wrong-item">
+          <div class="wrong-q">
+            <span class="wid">#{{ q.id }}</span>
+            {{ q.question }}
+          </div>
+          <div class="wrong-actions">
+            <span class="wans">正确答案：<strong>{{ q.answer }}</strong></span>
+            <button class="btn-retry-one" @click="retryOne(q.id)">重答</button>
+          </div>
+        </div>
+      </template>
+
+      <button
+        v-if="store.wrongQuestionsList.length > 0"
+        class="btn-restart"
+        @click="store.startWrongRetry()"
+      >重新答题</button>
+    </template>
   </div>
 </template>
 
@@ -45,8 +82,22 @@ function retryOne(qid: number) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
 }
 
+/* 重答卡片 */
+.retry-card {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.retry-card :deep(.quiz-card) {
+  height: auto;
+  flex: 1;
+}
+
+/* 空状态 */
 .empty-state {
   text-align: center;
   color: var(--color-text-muted);

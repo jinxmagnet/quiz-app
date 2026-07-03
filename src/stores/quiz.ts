@@ -160,6 +160,89 @@ export const useQuizStore = defineStore('quiz', () => {
       .filter(Boolean) as Question[]
   })
 
+  // 错题重答模式
+  const wrongRetrying = ref(false)
+  const wrongRetryIndex = ref(0)
+
+  const wrongRetryQuestion = computed(() => {
+    const list = wrongQuestionsList.value
+    if (wrongRetryIndex.value >= 0 && wrongRetryIndex.value < list.length) {
+      return list[wrongRetryIndex.value]
+    }
+    return null
+  })
+
+  function startWrongRetry() {
+    if (wrongQuestionsList.value.length === 0) return
+    wrongRetryIndex.value = 0
+    wrongRetrying.value = true
+  }
+
+  function clearWrongAnswers() {
+    const next = { ...answers.value }
+    for (const [qid, rec] of Object.entries(next)) {
+      if (!rec.correct) delete next[Number(qid)]
+    }
+    answers.value = next
+  }
+
+  function resetWrongRetry() {
+    wrongRetrying.value = false
+    wrongRetryIndex.value = 0
+  }
+
+  // 错题重答提交（答对自动移除，答错保留接着下一题）
+  function submitWrongRetrySingle(label: string) {
+    const q = wrongRetryQuestion.value
+    if (!q) return null
+    const correct = label === q.answer
+    answers.value = {
+      ...answers.value,
+      [q.id]: { selected: [label], correct },
+    }
+    // 所有错题都答对了
+    if (wrongQuestionsList.value.length === 0) {
+      wrongRetrying.value = false
+      wrongRetryIndex.value = 0
+      return { correct, correctAnswer: q.answer }
+    }
+    // 答对后索引可能越界（当前是最后一道题被答对），往前移
+    if (wrongRetryIndex.value >= wrongQuestionsList.value.length) {
+      wrongRetryIndex.value = wrongQuestionsList.value.length - 1
+    }
+    // 答错则前进下一题
+    if (!correct && wrongRetryIndex.value < wrongQuestionsList.value.length - 1) {
+      wrongRetryIndex.value++
+    }
+    return { correct, correctAnswer: q.answer }
+  }
+
+  function submitWrongRetryMulti(labels: string[]) {
+    const q = wrongRetryQuestion.value
+    if (!q) return null
+    const correctAnswerSet = new Set(q.answer.split(''))
+    const selectedSet = new Set(labels)
+    const correct =
+      correctAnswerSet.size === selectedSet.size &&
+      [...correctAnswerSet].every((l) => selectedSet.has(l))
+    answers.value = {
+      ...answers.value,
+      [q.id]: { selected: labels, correct },
+    }
+    if (wrongQuestionsList.value.length === 0) {
+      wrongRetrying.value = false
+      wrongRetryIndex.value = 0
+      return { correct, correctAnswer: q.answer }
+    }
+    if (wrongRetryIndex.value >= wrongQuestionsList.value.length) {
+      wrongRetryIndex.value = wrongQuestionsList.value.length - 1
+    }
+    if (!correct && wrongRetryIndex.value < wrongQuestionsList.value.length - 1) {
+      wrongRetryIndex.value++
+    }
+    return { correct, correctAnswer: q.answer }
+  }
+
   // ========== 答题记录 ==========
   const answers = ref<Record<number, AnswerRecord>>(
     loadFromStorage<Record<number, AnswerRecord>>(getStorageKey('safety-a', 'answers'), {})
@@ -362,6 +445,9 @@ export const useQuizStore = defineStore('quiz', () => {
     reviewSequence,
     reviewTotal,
     wrongQuestionsList,
+    wrongRetrying,
+    wrongRetryIndex,
+    wrongRetryQuestion,
     answeredCount,
     correctCount,
     wrongCount,
@@ -382,6 +468,11 @@ export const useQuizStore = defineStore('quiz', () => {
     canGoPrev,
     reset,
     retryQuestion,
+    startWrongRetry,
+    clearWrongAnswers,
+    resetWrongRetry,
+    submitWrongRetrySingle,
+    submitWrongRetryMulti,
     toggleBookmark,
     isBookmarked,
   }
